@@ -8,7 +8,7 @@ import { useEffect, useRef, useCallback } from 'react';
  *
  * Returns { startCamera, stopCamera }
  */
-export function useHandDetection({ videoRef, canvasRef, onLandmarks, enabled = true }) {
+export function useHandDetection({ videoRef, canvasRef, onLandmarks, onError, enabled = true }) {
   const handsRef  = useRef(null);
   const cameraRef = useRef(null);
   const rafRef    = useRef(null);
@@ -50,10 +50,27 @@ export function useHandDetection({ videoRef, canvasRef, onLandmarks, enabled = t
   }, []);
 
   const startCamera = useCallback(async () => {
-    if (!enabled) return;
+    console.log('[useHandDetection] startCamera called, enabled=', enabled);
+
+    if (!videoRef?.current) {
+      const err = new Error('[useHandDetection] Video element not available');
+      console.error('[useHandDetection] ERROR: ', err);
+      onError?.(err);
+      return;
+    }
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      const err = new Error('[useHandDetection] Browser does not support camera access');
+      console.error('[useHandDetection] ERROR: ', err);
+      onError?.(err);
+      return;
+    }
+
     try {
+      console.log('[useHandDetection] importing mediapipe modules');
       const { Hands }        = await import('@mediapipe/hands');
       const { Camera }       = await import('@mediapipe/camera_utils');
+      console.log('[useHandDetection] modules imported');
 
       const hands = new Hands({
         locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`,
@@ -76,10 +93,13 @@ export function useHandDetection({ videoRef, canvasRef, onLandmarks, enabled = t
           const landmarks = results.multiHandLandmarks[0];
           drawLandmarks(ctx, landmarks, canvas.width, canvas.height);
           onLandmarks && onLandmarks(landmarks);
+        } else {
+          console.debug('[useHandDetection] no hand landmarks on current frame');
         }
       });
 
       await hands.initialize();
+      console.log('[useHandDetection] hands initialized');
       handsRef.current = hands;
 
       const camera = new Camera(videoRef.current, {
@@ -91,14 +111,18 @@ export function useHandDetection({ videoRef, canvasRef, onLandmarks, enabled = t
         width: 640, height: 480,
       });
 
+      console.log('[useHandDetection] starting camera');
       await camera.start();
       cameraRef.current = camera;
+      console.log('[useHandDetection] camera started');
     } catch (err) {
       console.error('[useHandDetection] Failed to start camera:', err);
+      onError?.(err);
     }
-  }, [enabled, videoRef, canvasRef, onLandmarks, drawLandmarks]);
+  }, [enabled, videoRef, canvasRef, onLandmarks, onError, drawLandmarks]);
 
   const stopCamera = useCallback(() => {
+    console.log('[useHandDetection] stopCamera called');
     cameraRef.current?.stop();
     handsRef.current?.close();
     cameraRef.current = null;

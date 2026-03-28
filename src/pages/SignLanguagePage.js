@@ -19,6 +19,7 @@ export default function SignLanguagePage({ language }) {
   const [autoSpeak,  setAutoSpeak]  = useState(true);
   const [history,    setHistory]    = useState([]);
   const [status,     setStatus]     = useState('idle'); // idle | detecting | detected
+  const [cameraError,setCameraError]= useState(null);
 
   // ── Handle landmarks from MediaPipe ──────────────────────────────────────
   const onLandmarks = useCallback(async (landmarks) => {
@@ -44,10 +45,20 @@ export default function SignLanguagePage({ language }) {
   }, [language, autoSpeak]);
 
   const { startCamera, stopCamera } = useHandDetection({
-    videoRef, canvasRef, onLandmarks, enabled: cameraOn,
+    videoRef,
+    canvasRef,
+    onLandmarks,
+    enabled: cameraOn,
+    onError: (err) => {
+      setCameraError(err?.message || 'Camera error');
+      setStatus('idle');
+      setCameraOn(false);
+    },
   });
 
   const toggleCamera = async () => {
+    setCameraError(null);
+
     if (cameraOn) {
       stopCamera();
       setCameraOn(false);
@@ -128,6 +139,12 @@ export default function SignLanguagePage({ language }) {
               <div className="cam-status-badge">
                 <span className={`status-dot ${status}`}/>
                 {status === 'detecting' ? 'Detecting...' : status === 'detected' ? 'Sign detected' : 'Looking for hand...'}
+              </div>
+            )}
+
+            {cameraError && (
+              <div className="cam-error">
+                <strong>Camera error:</strong> {cameraError}
               </div>
             )}
           </div>
