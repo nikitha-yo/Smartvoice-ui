@@ -4,7 +4,7 @@ import './PhrasesPage.css';
 
 const CATEGORIES = ['all', 'urgent', 'needs', 'social', 'response', 'feelings', 'custom'];
 
-export default function PhrasesPage({ language }) {
+export default function PhrasesPage() {
   const [phrases,  setPhrases]  = useState([]);
   const [category, setCategory] = useState('all');
   const [speaking, setSpeaking] = useState(null);
@@ -24,13 +24,13 @@ export default function PhrasesPage({ language }) {
 
   const doSpeak = async (text, id) => {
     setSpeaking(id);
-    await speakText(text, language);
+    await speakText(text, 'en');
     setTimeout(() => setSpeaking(null), 2500);
   };
 
   const handleAdd = async () => {
     if (!newLabel.trim() || !newSent.trim()) return;
-    await addPhrase({ label: newLabel, sentence: newSent, category: newCat, language });
+    await addPhrase({ label: newLabel, sentence: newSent, category: newCat, language: 'en' });
     const updated = await getPhrases();
     setPhrases(updated);
     setNewLabel(''); setNewSent(''); setShowAdd(false);

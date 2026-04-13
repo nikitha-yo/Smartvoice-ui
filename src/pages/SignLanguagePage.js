@@ -3,13 +3,18 @@ import { useHandDetection } from '../hooks/useHandDetection';
 import { predictGesture, speakText } from '../utils/api';
 import './SignLanguagePage.css';
 
-const THROTTLE_MS = 800; // send to backend at most once per 800ms
+const THROTTLE_MS = 200; // faster sampling for better movement scanning
+const STABLE_FRAME_COUNT = 2;
 
-export default function SignLanguagePage({ language }) {
+export default function SignLanguagePage() {
   const videoRef  = useRef(null);
   const canvasRef = useRef(null);
   const lastSent  = useRef(0);
-  const speakQueue= useRef([]);
+  const lastSpokenAt = useRef(0);
+  const recentGesture = useRef({ label: null, count: 0 });
+  const lastSpokenGesture = useRef(null);
+  const lastWrist = useRef(null);
+  const motionEma = useRef(0);
 
   const [cameraOn,   setCameraOn]   = useState(false);
   const [gesture,    setGesture]    = useState(null);
@@ -29,20 +34,43 @@ export default function SignLanguagePage({ language }) {
     setStatus('detecting');
 
     try {
-      const result = await predictGesture(landmarks, language);
-      setGesture(result.gesture);
-      setSentence(result.sentence);
-      setConfidence(result.confidence);
-      setStatus('detected');
-      setHistory(h => [result, ...h].slice(0, 20));
+      const wrist = landmarks?.[0];
+      if (wrist && typeof wrist.x === 'number' && typeof wrist.y === 'number') {
+        if (lastWrist.current) {
+          const dx = wrist.x - lastWrist.current.x;
+          const dy = wrist.y - lastWrist.current.y;
+          const frameMove = Math.sqrt(dx * dx + dy * dy);
+          motionEma.current = motionEma.current * 0.7 + frameMove * 0.3;
+        }
+        lastWrist.current = { x: wrist.x, y: wrist.y };
+      }
 
-      if (autoSpeak) {
-        doSpeak(result.sentence);
+      const result = await predictGesture(landmarks, 'en', motionEma.current);
+      const prev = recentGesture.current;
+      const nextCount = prev.label === result.gesture ? prev.count + 1 : 1;
+      recentGesture.current = { label: result.gesture, count: nextCount };
+
+      // Stabilize detection: confirm same gesture in consecutive samples.
+      if (nextCount >= STABLE_FRAME_COUNT) {
+        setGesture(result.gesture);
+        setSentence(result.sentence);
+        setConfidence(result.confidence);
+        setStatus('detected');
+        setHistory(h => [result, ...h].slice(0, 20));
+
+        // Speak only for a new stable gesture and after cooldown.
+        const isNewGesture = result.gesture !== lastSpokenGesture.current;
+        const cooldownPassed = Date.now() - lastSpokenAt.current >= 1000;
+        if (autoSpeak && isNewGesture && cooldownPassed) {
+          lastSpokenGesture.current = result.gesture;
+          lastSpokenAt.current = Date.now();
+          doSpeak(result.sentence);
+        }
       }
     } catch {
       setStatus('idle');
     }
-  }, [language, autoSpeak]);
+  }, [autoSpeak]);
 
   const { startCamera, stopCamera } = useHandDetection({
     videoRef,
@@ -65,6 +93,10 @@ export default function SignLanguagePage({ language }) {
       setStatus('idle');
       setGesture(null);
       setSentence('');
+      recentGesture.current = { label: null, count: 0 };
+      lastSpokenGesture.current = null;
+      lastWrist.current = null;
+      motionEma.current = 0;
     } else {
       setCameraOn(true);
       await startCamera();
@@ -74,13 +106,14 @@ export default function SignLanguagePage({ language }) {
   const doSpeak = async (text) => {
     if (!text) return;
     setSpeaking(true);
-    await speakText(text, language);
+    await speakText(text, 'en');
     setTimeout(() => setSpeaking(false), 2000);
   };
 
   const triggerSOS = () => {
     const msg = 'Emergency! I need help immediately. Please come to me now.';
     setSentence(msg);
+    lastSpokenAt.current = Date.now();
     doSpeak(msg);
   };
 
@@ -247,18 +280,18 @@ export default function SignLanguagePage({ language }) {
 }
 
 const GESTURE_HINTS = [
-  { gesture: 'Hello',    desc: 'Open all 5 fingers, palm out' },
+  { gesture: 'Hello',    desc: 'Open palm + slight wave' },
   { gesture: 'Yes',      desc: 'Closed fist' },
   { gesture: 'No',       desc: 'Index + middle finger (V/peace)' },
   { gesture: 'Help',     desc: 'Only index finger pointing up' },
-  { gesture: 'Stop',     desc: 'All fingers open, palm facing you' },
+  { gesture: 'Stop',     desc: 'Open palm, steady (no movement)' },
   { gesture: 'Water',    desc: 'Only pinky finger up' },
-  { gesture: 'Pain',     desc: 'Thumb + index only (gun shape)' },
+  { gesture: 'Pain',     desc: 'Thumb + index (gun shape)' },
   { gesture: 'Call',     desc: 'Thumb + pinky (phone shape)' },
   { gesture: 'Doctor',   desc: 'Index + middle + ring up' },
   { gesture: 'Bathroom', desc: 'Four fingers (no thumb)' },
-  { gesture: 'Thanks',   desc: 'Thumb + index + middle up' },
-  { gesture: 'Love',     desc: 'Thumb only extended' },
+  { gesture: 'Thanks',   desc: 'Thumb + index + middle fingers up' },
+  { gesture: 'Did you eat?', desc: 'Index up with thumb open' },
 ];
 
 const CamIcon   = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="7" width="20" height="15" rx="2"/><circle cx="12" cy="14" r="3"/></svg>;

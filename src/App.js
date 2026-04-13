@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { BrowserRouter, Routes, Route, NavLink } from 'react-router-dom';
 import SignLanguagePage from './pages/SignLanguagePage';
 import PhrasesPage     from './pages/PhrasesPage';
@@ -7,8 +7,6 @@ import SettingsPage    from './pages/SettingsPage';
 import './App.css';
 
 export default function App() {
-  const [language, setLanguage] = useState('en');
-
   return (
     <BrowserRouter>
       <div className="app-shell">
@@ -25,18 +23,6 @@ export default function App() {
             <span className="brand-name">Smart Voice</span>
             <span className="brand-tag">Non-verbal communication</span>
           </div>
-          <select
-            className="lang-select"
-            value={language}
-            onChange={e => setLanguage(e.target.value)}
-          >
-            <option value="en">English</option>
-            <option value="hi">Hindi</option>
-            <option value="ta">Tamil</option>
-            <option value="kn">Kannada</option>
-            <option value="te">Telugu</option>
-            <option value="mr">Marathi</option>
-          </select>
         </header>
 
         <nav className="sidenav">
@@ -56,10 +42,10 @@ export default function App() {
 
         <main className="main-content">
           <Routes>
-            <Route path="/"         element={<SignLanguagePage language={language}/>}/>
-            <Route path="/phrases"  element={<PhrasesPage      language={language}/>}/>
+            <Route path="/"         element={<SignLanguagePage/>}/>
+            <Route path="/phrases"  element={<PhrasesPage/>}/>
             <Route path="/history"  element={<HistoryPage/>}/>
-            <Route path="/settings" element={<SettingsPage language={language} setLanguage={setLanguage}/>}/>
+            <Route path="/settings" element={<SettingsPage/>}/>
           </Routes>
         </main>
       </div>

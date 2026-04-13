@@ -2,21 +2,12 @@ import React, { useState } from 'react';
 import { speakText } from '../utils/api';
 import './SettingsPage.css';
 
-const LANGUAGES = [
-  { code: 'en', name: 'English' },
-  { code: 'hi', name: 'Hindi' },
-  { code: 'ta', name: 'Tamil' },
-  { code: 'kn', name: 'Kannada' },
-  { code: 'te', name: 'Telugu' },
-  { code: 'mr', name: 'Marathi' },
-];
-
-export default function SettingsPage({ language, setLanguage }) {
+export default function SettingsPage() {
   const [testText, setTestText] = useState('Hello, I am using Smart Voice to communicate.');
   const [tested,   setTested]   = useState(false);
 
   const testVoice = async () => {
-    await speakText(testText, language);
+    await speakText(testText, 'en');
     setTested(true);
     setTimeout(() => setTested(false), 3000);
   };
@@ -24,30 +15,12 @@ export default function SettingsPage({ language, setLanguage }) {
   return (
     <div className="settings-page">
       <h1 className="page-title">Settings</h1>
-      <p className="page-sub">Configure language, voice, and accessibility options</p>
+      <p className="page-sub">Configure accessibility options</p>
 
       <div className="settings-grid">
-        {/* Language */}
+        {/* Voice test */}
         <div className="card settings-card">
-          <div className="settings-card-title">Language & Voice</div>
-
-          <div className="setting-row">
-            <div>
-              <div className="setting-label">Output language</div>
-              <div className="setting-hint">The app will speak in this language</div>
-            </div>
-            <select
-              className="setting-select"
-              value={language}
-              onChange={e => setLanguage(e.target.value)}
-            >
-              {LANGUAGES.map(l => (
-                <option key={l.code} value={l.code}>{l.name}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="setting-divider"/>
+          <div className="settings-card-title">Voice Test</div>
 
           <div className="setting-label" style={{ marginBottom: 8 }}>Test voice output</div>
           <textarea
@@ -104,7 +77,7 @@ export default function SettingsPage({ language, setLanguage }) {
           <p className="settings-hint-text">
             Smart Voice is an accessibility web application that helps non-verbal users communicate
             using sign language detected by AI. It converts hand gestures to speech in real time,
-            supports multiple Indian languages, and stores phrase history locally.
+            supports voice playback profiles, and stores phrase history locally.
           </p>
           <div className="about-badges">
             <span className="about-badge">React 18</span>
@@ -121,18 +94,18 @@ export default function SettingsPage({ language, setLanguage }) {
 }
 
 const GESTURE_REF = [
-  { sign: 'Hello',    desc: 'All 5 fingers open, palm facing out' },
-  { sign: 'Yes',      desc: 'Closed fist (all fingers curled)' },
-  { sign: 'No',       desc: 'Index + middle extended (peace sign)' },
+  { sign: 'Hello',    desc: 'Open palm + slight wave' },
+  { sign: 'Yes',      desc: 'Closed fist' },
+  { sign: 'No',       desc: 'Index + middle finger (V/peace)' },
   { sign: 'Help',     desc: 'Only index finger pointing up' },
-  { sign: 'Stop',     desc: 'All fingers open, palm toward you' },
-  { sign: 'Water',    desc: 'Only pinky finger extended' },
-  { sign: 'Pain',     desc: 'Thumb + index finger only (gun shape)' },
-  { sign: 'Thanks',   desc: 'Thumb + index + middle extended' },
+  { sign: 'Stop',     desc: 'Open palm, steady (no movement)' },
+  { sign: 'Water',    desc: 'Only pinky finger up' },
+  { sign: 'Pain',     desc: 'Thumb + index (gun shape)' },
   { sign: 'Call',     desc: 'Thumb + pinky (phone shape)' },
-  { sign: 'Doctor',   desc: 'Index + middle + ring fingers up' },
-  { sign: 'Bathroom', desc: 'Four fingers extended, no thumb' },
-  { sign: 'Love',     desc: 'Thumb only extended' },
+  { sign: 'Doctor',   desc: 'Index + middle + ring finger up' },
+  { sign: 'Bathroom', desc: 'Four fingers (no thumb)' },
+  { sign: 'Thanks',   desc: 'Thumb + index + middle fingers up' },
+  { sign: 'Did you eat?', desc: 'Index up with thumb open' },
 ];
 
 const TECH_STACK = [

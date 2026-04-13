@@ -2,26 +2,33 @@ import axios from 'axios';
 
 const api = axios.create({ baseURL: '/api' });
 
-export const predictGesture = (landmarks, language = 'en') =>
-  api.post('/gesture/predict', { landmarks, language }).then(r => r.data);
+export const predictGesture = (landmarks, language = 'en', motion = 0) =>
+  api.post('/gesture/predict', { landmarks, language, motion }).then(r => r.data);
 
 export const speakText = async (text, language = 'en') => {
+  const speakWithBrowser = () => {
+    if (!('speechSynthesis' in window)) return;
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    const langMap = { en: 'en-US', hi: 'hi-IN', ta: 'ta-IN', kn: 'kn-IN', te: 'te-IN', mr: 'mr-IN' };
+    u.lang = langMap[language] || 'en-US';
+    window.speechSynthesis.speak(u);
+  };
+
   // Try backend gTTS first, fall back to browser SpeechSynthesis
   try {
     const res = await api.post('/tts/speak', { text, language }, { responseType: 'blob' });
     const url  = URL.createObjectURL(res.data);
     const audio = new Audio(url);
-    audio.play();
+    try {
+      await audio.play();
+    } catch {
+      // Autoplay can be blocked for non-user-triggered events.
+      speakWithBrowser();
+    }
     return audio;
   } catch {
-    // Fallback: browser Web Speech API
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(text);
-      const langMap = { en: 'en-US', hi: 'hi-IN', ta: 'ta-IN', kn: 'kn-IN', te: 'te-IN', mr: 'mr-IN' };
-      u.lang = langMap[language] || 'en-US';
-      window.speechSynthesis.speak(u);
-    }
+    speakWithBrowser();
   }
 };
 
