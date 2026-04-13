@@ -3,7 +3,7 @@ import { useHandDetection } from '../hooks/useHandDetection';
 import { predictGesture, speakText } from '../utils/api';
 import './SignLanguagePage.css';
 
-const THROTTLE_MS = 200; // faster sampling for better movement scanning
+const THROTTLE_MS = 350; // reduce API request frequency
 const STABLE_FRAME_COUNT = 2;
 
 export default function SignLanguagePage() {
@@ -13,6 +13,7 @@ export default function SignLanguagePage() {
   const lastSpokenAt = useRef(0);
   const recentGesture = useRef({ label: null, count: 0 });
   const lastSpokenGesture = useRef(null);
+  const lastHistoryGesture = useRef(null);
   const lastWrist = useRef(null);
   const motionEma = useRef(0);
 
@@ -52,16 +53,28 @@ export default function SignLanguagePage() {
 
       // Stabilize detection: confirm same gesture in consecutive samples.
       if (nextCount >= STABLE_FRAME_COUNT) {
-        setGesture(result.gesture);
-        setSentence(result.sentence);
-        setConfidence(result.confidence);
-        setStatus('detected');
-        setHistory(h => [result, ...h].slice(0, 20));
+        const isUsable = result.gesture !== 'unknown' && (result.confidence || 0) >= 70;
+
+        if (isUsable) {
+          setGesture(result.gesture);
+          setSentence(result.sentence);
+          setConfidence(result.confidence);
+          setStatus('detected');
+
+          // Keep recent detections meaningful: store only when gesture changes.
+          if (result.gesture !== lastHistoryGesture.current) {
+            lastHistoryGesture.current = result.gesture;
+            setHistory(h => [result, ...h].slice(0, 20));
+          }
+        } else {
+          setStatus('idle');
+          setConfidence(0);
+        }
 
         // Speak only for a new stable gesture and after cooldown.
         const isNewGesture = result.gesture !== lastSpokenGesture.current;
         const cooldownPassed = Date.now() - lastSpokenAt.current >= 1000;
-        if (autoSpeak && isNewGesture && cooldownPassed) {
+        if (isUsable && autoSpeak && isNewGesture && cooldownPassed && result.sentence) {
           lastSpokenGesture.current = result.gesture;
           lastSpokenAt.current = Date.now();
           doSpeak(result.sentence);
@@ -95,6 +108,7 @@ export default function SignLanguagePage() {
       setSentence('');
       recentGesture.current = { label: null, count: 0 };
       lastSpokenGesture.current = null;
+      lastHistoryGesture.current = null;
       lastWrist.current = null;
       motionEma.current = 0;
     } else {
@@ -283,8 +297,11 @@ const GESTURE_HINTS = [
   { gesture: 'Hello',    desc: 'Open palm + slight wave' },
   { gesture: 'Yes',      desc: 'Closed fist' },
   { gesture: 'No',       desc: 'Index + middle finger (V/peace)' },
+  { gesture: 'Good',     desc: 'Thumb up, fist closed' },
+  { gesture: 'Sorry',    desc: 'Closed fist + small circular motion' },
   { gesture: 'Help',     desc: 'Only index finger pointing up' },
   { gesture: 'Stop',     desc: 'Open palm, steady (no movement)' },
+  { gesture: 'Hungry',   desc: 'Open palm + hand moves upward' },
   { gesture: 'Water',    desc: 'Only pinky finger up' },
   { gesture: 'Pain',     desc: 'Thumb + index (gun shape)' },
   { gesture: 'Call',     desc: 'Thumb + pinky (phone shape)' },
